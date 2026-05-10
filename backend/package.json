@@ -1,0 +1,35 @@
+{
+  "name": "sivionchat",
+  "version": "1.0.0",
+  "description": "SivionChat - enterprise-style real-time chat app powered by Socket.io",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "prestart": "npm run build:css",
+    "dev": "nodemon server.js",
+    "predev": "npm run build:css",
+    "build:css": "node ./node_modules/tailwindcss/lib/cli.js -i ../frontend/src/css/input.css -o ../frontend/public/tailwind.css --minify",
+    "watch:css": "node ./node_modules/tailwindcss/lib/cli.js -i ../frontend/src/css/input.css -o ../frontend/public/tailwind.css --watch",
+    "reset:messages": "node ./scripts/clear-messages.js"
+  },
+  "keywords": [
+    "chat",
+    "socket.io",
+    "express",
+    "tailwind",
+    "realtime"
+  ],
+  "author": "SivionChat Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "mongoose": "^8.0.3",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "tailwindcss": "^3.4.17"
+  }
+}
+

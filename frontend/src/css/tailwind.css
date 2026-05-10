@@ -1,0 +1,39 @@
+/* Supplemental design system layer for SivionChat. */
+html,
+body {
+  block-size: 100%;
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+.sivion-scroll::-webkit-scrollbar {
+  inline-size: 8px;
+}
+
+.sivion-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sivion-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
+.message-enter {
+  animation: messageFade 160ms ease-out;
+}
+
+.contact-item {
+  border-radius: 14px;
+  margin-block-end: 4px;
+}
+
+@keyframes messageFade {
+  from {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
