@@ -25,11 +25,24 @@ import {
   updateComposerAvailability,
   updateThreadActionButtons
 } from "./ui.js";
+import {
+  initWebRTCUI,
+  startCall,
+  handleIncomingCall,
+  handleCallAccepted,
+  handleCallDeclined,
+  handleOffer,
+  handleAnswer,
+  handleIceCandidate,
+  handleCallEnded,
+  webrtcState
+} from "./webrtc.js";
 
 const root = document.getElementById("app");
 const socket = createSocketClient();
 let typingStopTimer = null;
 let contactSearchText = "";
+let currentAttachment = null;
 
 function getSelectedContactOnlineState() {
   const selected = state.registeredUsers.find(
@@ -190,15 +203,25 @@ function syncMobileChatVisibility() {
   }
 }
 
-function createMessagePayload(text) {
-  return {
+function createMessagePayload(text, attachmentData = null) {
+  const payload = {
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     sender: state.currentUser,
     receiver: state.selectedContact,
     text: text.trim(),
     time: new Date().toISOString(),
-    isDeleted: false
+    isDeleted: false,
+    type: "text"
   };
+  
+  if (attachmentData) {
+    payload.type = attachmentData.type;
+    payload.fileUrl = attachmentData.url;
+    payload.fileName = attachmentData.filename;
+    payload.fileSize = attachmentData.size;
+  }
+  
+  return payload;
 }
 
 function hydrateAuth() {
@@ -314,6 +337,9 @@ function bootAppShell() {
   updateThreadActionButtons(Boolean(state.selectedContact));
   syncMobileChatVisibility();
   window.addEventListener("resize", syncMobileChatVisibility);
+  
+  // Initialize WebRTC UI elements
+  initWebRTCUI(socket);
 }
 
 async function hydrateRegisteredUsers() {
@@ -430,6 +456,36 @@ function registerSocketEvents() {
       getSelectedContactOnlineState()
     );
   });
+
+  // --- WebRTC Socket Events ---
+  socket.on("webrtc:incoming-call", ({ caller, type }) => {
+    handleIncomingCall(socket, state.currentUser, caller, type);
+  });
+
+  socket.on("webrtc:call-accepted", ({ responder }) => {
+    handleCallAccepted(socket, state.currentUser, responder);
+  });
+
+  socket.on("webrtc:call-declined", ({ responder, reason }) => {
+    handleCallDeclined(reason);
+  });
+
+  socket.on("webrtc:offer", ({ caller, offer }) => {
+    handleOffer(socket, state.currentUser, caller, offer);
+  });
+
+  socket.on("webrtc:answer", ({ responder, answer }) => {
+    handleAnswer(responder, answer);
+  });
+
+  socket.on("webrtc:ice-candidate", ({ sender, candidate }) => {
+    handleIceCandidate(sender, candidate);
+  });
+
+  socket.on("webrtc:call-ended", ({ sender }) => {
+    handleCallEnded();
+  });
+  // --- End WebRTC ---
 }
 
 function wireAppEvents() {
@@ -459,6 +515,31 @@ function wireAppEvents() {
   const appMenuPanel = document.getElementById("app-menu-panel");
   const appMenuWrap = document.getElementById("app-menu-wrap");
 
+  // Attachment Menu Elements
+  const attachmentMenuBtn = document.getElementById("attachment-menu-btn");
+  const attachmentMenuPanel = document.getElementById("attachment-menu-panel");
+  const attachDocBtn = document.getElementById("attach-doc-btn");
+  const attachMediaBtn = document.getElementById("attach-media-btn");
+  const hiddenFileInput = document.getElementById("hidden-file-input");
+  
+  // Preview Elements
+  const previewContainer = document.getElementById("attachment-preview-container");
+  const previewImg = document.getElementById("attachment-preview-img");
+  const previewVideo = document.getElementById("attachment-preview-video");
+  const previewDoc = document.getElementById("attachment-preview-doc");
+  const previewFilename = document.getElementById("attachment-preview-filename");
+  const removeAttachmentBtn = document.getElementById("remove-attachment-btn");
+
+  // Call Menu Elements
+  const callMenuBtn = document.getElementById("call-menu-btn");
+  const callMenuPanel = document.getElementById("call-menu-panel");
+  const callMenuWrap = document.getElementById("call-menu-wrap");
+  const actionVoiceCall = document.getElementById("action-voice-call");
+  const actionVideoCall = document.getElementById("action-video-call");
+
+  // Initialize WebRTC UI elements
+  initWebRTCUI();
+
   function closeAppMenu() {
     appMenuPanel?.classList.add("hidden");
   }
@@ -470,11 +551,21 @@ function wireAppEvents() {
   function closeProfileMenu() {
     profileMenuPanel?.classList.add("hidden");
   }
+  
+  function closeAttachmentMenu() {
+    attachmentMenuPanel?.classList.add("hidden");
+  }
+
+  function closeCallMenu() {
+    callMenuPanel?.classList.add("hidden");
+  }
 
   function closeAllMenus() {
     closeAppMenu();
     closeNavMenu();
     closeProfileMenu();
+    closeAttachmentMenu();
+    closeCallMenu();
   }
 
   function doLogout() {
@@ -518,6 +609,8 @@ function wireAppEvents() {
     event.stopPropagation();
     closeNavMenu();
     closeProfileMenu();
+    closeAttachmentMenu();
+    closeCallMenu();
     appMenuPanel?.classList.toggle("hidden");
   });
 
@@ -525,6 +618,8 @@ function wireAppEvents() {
     event.stopPropagation();
     closeAppMenu();
     closeProfileMenu();
+    closeAttachmentMenu();
+    closeCallMenu();
     navMenuPanel?.classList.toggle("hidden");
   });
 
@@ -543,6 +638,8 @@ function wireAppEvents() {
     event.stopPropagation();
     closeAppMenu();
     closeNavMenu();
+    closeAttachmentMenu();
+    closeCallMenu();
     profileMenuPanel?.classList.toggle("hidden");
   });
 
@@ -605,6 +702,14 @@ function wireAppEvents() {
   profileMenuWrap?.addEventListener("click", (event) => {
     event.stopPropagation();
   });
+  
+  attachmentMenuPanel?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  
+  callMenuWrap?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") {
@@ -615,20 +720,170 @@ function wireAppEvents() {
     privacyModal?.classList.add("hidden");
   });
 
-  composerForm.addEventListener("submit", (event) => {
+  // Attachment Menu Events
+  attachmentMenuBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    closeAppMenu();
+    closeNavMenu();
+    closeProfileMenu();
+    closeCallMenu();
+    attachmentMenuPanel?.classList.toggle("hidden");
+  });
+
+  // Call Menu Events
+  callMenuBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    closeAppMenu();
+    closeNavMenu();
+    closeProfileMenu();
+    closeAttachmentMenu();
+    callMenuPanel?.classList.toggle("hidden");
+  });
+
+  actionVoiceCall?.addEventListener("click", () => {
+    closeCallMenu();
+    if (!state.selectedContact) return;
+    startCall(socket, state.currentUser, state.selectedContact, "audio");
+  });
+
+  actionVideoCall?.addEventListener("click", () => {
+    closeCallMenu();
+    if (!state.selectedContact) return;
+    startCall(socket, state.currentUser, state.selectedContact, "video");
+  });
+  
+  // Also hook up the bottom 3 buttons in the call menu
+  document.querySelectorAll("#call-menu-panel button").forEach(btn => {
+    if (btn.id !== "action-voice-call" && btn.id !== "action-video-call") {
+      btn.addEventListener("click", () => {
+        closeCallMenu();
+        window.alert(`Feature coming soon: ${btn.textContent.trim()}`);
+      });
+    }
+  });
+
+  attachMediaBtn?.addEventListener("click", () => {
+    closeAttachmentMenu();
+    if (hiddenFileInput) {
+      hiddenFileInput.accept = "image/*,video/*";
+      hiddenFileInput.click();
+    }
+  });
+
+  attachDocBtn?.addEventListener("click", () => {
+    closeAttachmentMenu();
+    if (hiddenFileInput) {
+      hiddenFileInput.accept = "*";
+      hiddenFileInput.click();
+    }
+  });
+  
+  function clearAttachmentPreview() {
+    currentAttachment = null;
+    if (hiddenFileInput) hiddenFileInput.value = "";
+    previewContainer?.classList.add("hidden");
+    previewImg?.classList.add("hidden");
+    previewVideo?.classList.add("hidden");
+    previewDoc?.classList.add("hidden");
+    if (previewImg) previewImg.src = "";
+    if (previewVideo) previewVideo.src = "";
+  }
+  
+  removeAttachmentBtn?.addEventListener("click", () => {
+    clearAttachmentPreview();
+  });
+  
+  hiddenFileInput?.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    currentAttachment = file;
+    previewContainer?.classList.remove("hidden");
+    previewImg?.classList.add("hidden");
+    previewVideo?.classList.add("hidden");
+    previewDoc?.classList.add("hidden");
+    
+    const url = URL.createObjectURL(file);
+    
+    if (file.type.startsWith("image/")) {
+      previewImg.src = url;
+      previewImg.classList.remove("hidden");
+    } else if (file.type.startsWith("video/")) {
+      previewVideo.src = url;
+      previewVideo.classList.remove("hidden");
+    } else {
+      previewFilename.textContent = file.name;
+      previewDoc.classList.remove("hidden");
+    }
+  });
+
+  composerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!state.selectedContact) {
       return;
     }
     const text = composerInput.value.trim();
-    if (!text) {
+    if (!text && !currentAttachment) {
       return;
     }
-    const payload = createMessagePayload(text);
+    
+    // UI Feedback: disable composer while uploading
+    const sendBtn = composerForm.querySelector("button[type='submit']");
+    const originalBtnText = sendBtn.textContent;
+    composerInput.disabled = true;
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Sending...";
+    
+    let attachmentData = null;
+    
+    if (currentAttachment) {
+      const formData = new FormData();
+      formData.append("file", currentAttachment);
+      
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error("Upload failed");
+        }
+        
+        const data = await response.json();
+        let msgType = "document";
+        if (currentAttachment.type.startsWith("image/")) msgType = "image";
+        else if (currentAttachment.type.startsWith("video/")) msgType = "video";
+        
+        attachmentData = {
+          type: msgType,
+          url: data.url,
+          filename: data.filename,
+          size: data.size
+        };
+      } catch (err) {
+        console.error("Failed to upload attachment:", err);
+        window.alert("Failed to send attachment. Please try again.");
+        composerInput.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = originalBtnText;
+        return;
+      }
+    }
+    
+    const payload = createMessagePayload(text, attachmentData);
     addMessage(payload);
     socket.emit("message:send", payload);
     socket.emit("typing:stop", { username: state.currentUser });
+    
     composerInput.value = "";
+    clearAttachmentPreview();
+    
+    composerInput.disabled = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = originalBtnText;
+    composerInput.focus();
+    
     renderMessages(state.messages, state.currentUser, state.selectedContact);
   });
 

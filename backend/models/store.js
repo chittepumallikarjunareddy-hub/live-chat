@@ -1,13 +1,43 @@
 const mongoose = require("mongoose");
 
 // MongoDB Connection
+const defaultConnectOptions = {
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 10000
+};
+
 async function connectDB() {
+  const atlasUri = process.env.MONGODB_URI;
+  const localUri = process.env.MONGODB_URI_LOCAL || "mongodb://127.0.0.1:27017/sivionchat";
+  const uriToUse = atlasUri || localUri;
+  const isAtlas = atlasUri && atlasUri.startsWith("mongodb+srv://");
+
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("MongoDB connected successfully");
+    console.log("Connecting to MongoDB using:", uriToUse);
+    await mongoose.connect(uriToUse, defaultConnectOptions);
+    console.log("MongoDB connected successfully to:", uriToUse);
     await seedDefaultUsers();
+    return;
   } catch (error) {
     console.error("MongoDB connection error:", error);
+
+    if (isAtlas) {
+      console.warn("Atlas connection failed, attempting local MongoDB fallback...");
+      try {
+        await mongoose.connect(localUri, defaultConnectOptions);
+        console.log("MongoDB connected successfully to local fallback:", localUri);
+        await seedDefaultUsers();
+        return;
+      } catch (fallbackError) {
+        console.error("Local MongoDB fallback failed:", fallbackError);
+        throw fallbackError;
+      }
+    }
+
+    if (!atlasUri) {
+      console.warn("No Atlas URI configured; ensure local MongoDB is running at:", localUri);
+    }
+
     throw error;
   }
 }
@@ -36,7 +66,10 @@ const messageSchema = new mongoose.Schema({
   sender: { type: String, required: true },
   receiver: { type: String, default: "" },
   text: { type: String, default: "" },
-  time: { type: Date, default: Date.now },
+  type: { type: String, default: "text" },
+  fileUrl: { type: String, default: "" },
+  fileName: { type: String, default: "" },
+  fileSize: { type: Number, default: 0 },
   isDeleted: {
     type: Boolean,
     default: false
@@ -53,6 +86,7 @@ const Message = mongoose.model("Message", messageSchema);
 
 // In-memory tracking for real-time features
 const sockets = new Map();
+const userSockets = new Map();
 const activeUsers = new Set();
 
 const seededUsers = [
@@ -117,6 +151,10 @@ async function addMessage(message) {
       sender: message.sender,
       receiver: message.receiver != null ? String(message.receiver) : "",
       text: message.text != null ? String(message.text) : "",
+      type: message.type || "text",
+      fileUrl: message.fileUrl || "",
+      fileName: message.fileName || "",
+      fileSize: message.fileSize || 0,
       time: message.time ? new Date(message.time) : new Date(),
       isDeleted: Boolean(message.isDeleted)
     };
@@ -140,6 +178,10 @@ function toClientMessage(doc) {
     sender: o.sender || "",
     receiver: o.receiver || "",
     text: o.text || "",
+    type: o.type || "text",
+    fileUrl: o.fileUrl || "",
+    fileName: o.fileName || "",
+    fileSize: o.fileSize || 0,
     time: timeSrc ? new Date(timeSrc).toISOString() : new Date().toISOString(),
     isDeleted: Boolean(o.isDeleted),
     editedAt: o.editedAt ? new Date(o.editedAt).toISOString() : undefined
@@ -207,6 +249,10 @@ async function editMessageForEveryone(messageId, nextText) {
 // Socket functions (in-memory)
 function bindSocketUser(socketId, username) {
   sockets.set(socketId, username);
+  if (!userSockets.has(username)) {
+    userSockets.set(username, new Set());
+  }
+  userSockets.get(username).add(socketId);
   activeUsers.add(username);
 }
 
@@ -216,12 +262,25 @@ function unbindSocketUser(socketId) {
     return null;
   }
   sockets.delete(socketId);
-  activeUsers.delete(username);
-  return username;
+  
+  const set = userSockets.get(username);
+  if (set) {
+    set.delete(socketId);
+    if (set.size === 0) {
+      userSockets.delete(username);
+      activeUsers.delete(username);
+    }
+  }
+  
+  return activeUsers.has(username) ? null : username; // Only return username if completely offline
 }
 
 function getActiveUsers() {
   return Array.from(activeUsers);
+}
+
+function getSocketIdsForUser(username) {
+  return Array.from(userSockets.get(username) || []);
 }
 
 // Seed default users
@@ -253,5 +312,6 @@ module.exports = {
   unbindSocketUser,
   getActiveUsers,
   getAllUsers,
-  getUserDirectory
+  getUserDirectory,
+  getSocketIdsForUser
 };

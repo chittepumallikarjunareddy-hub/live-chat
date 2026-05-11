@@ -9,7 +9,8 @@ const {
   bindSocketUser,
   unbindSocketUser,
   getActiveUsers,
-  getUserDirectory
+  getUserDirectory,
+  getSocketIdsForUser
 } = require("./models/store");
 
 const GLOBAL_ROOM = "sivionchat:global";
@@ -86,6 +87,62 @@ function registerSocketHandlers(io) {
       }
       socket.to(GLOBAL_ROOM).emit("typing:update", { username, isTyping: false });
     });
+
+    // --- WebRTC Signaling ---
+    socket.on("webrtc:call-initiate", ({ targetUser, caller, type }) => {
+      const targetSockets = getSocketIdsForUser(targetUser);
+      if (targetSockets.length === 0) {
+        // User is offline, decline immediately
+        socket.emit("webrtc:call-declined", { responder: targetUser, reason: "offline" });
+        return;
+      }
+      targetSockets.forEach(id => {
+        io.to(id).emit("webrtc:incoming-call", { caller, type });
+      });
+    });
+
+    socket.on("webrtc:call-accept", ({ targetUser, responder }) => {
+      const targetSockets = getSocketIdsForUser(targetUser);
+      targetSockets.forEach(id => {
+        io.to(id).emit("webrtc:call-accepted", { responder });
+      });
+    });
+
+    socket.on("webrtc:call-decline", ({ targetUser, responder }) => {
+      const targetSockets = getSocketIdsForUser(targetUser);
+      targetSockets.forEach(id => {
+        io.to(id).emit("webrtc:call-declined", { responder });
+      });
+    });
+
+    socket.on("webrtc:offer", ({ targetUser, caller, offer }) => {
+      const targetSockets = getSocketIdsForUser(targetUser);
+      targetSockets.forEach(id => {
+        io.to(id).emit("webrtc:offer", { caller, offer });
+      });
+    });
+
+    socket.on("webrtc:answer", ({ targetUser, responder, answer }) => {
+      const targetSockets = getSocketIdsForUser(targetUser);
+      targetSockets.forEach(id => {
+        io.to(id).emit("webrtc:answer", { responder, answer });
+      });
+    });
+
+    socket.on("webrtc:ice-candidate", ({ targetUser, sender, candidate }) => {
+      const targetSockets = getSocketIdsForUser(targetUser);
+      targetSockets.forEach(id => {
+        io.to(id).emit("webrtc:ice-candidate", { sender, candidate });
+      });
+    });
+
+    socket.on("webrtc:call-end", ({ targetUser, sender }) => {
+      const targetSockets = getSocketIdsForUser(targetUser);
+      targetSockets.forEach(id => {
+        io.to(id).emit("webrtc:call-ended", { sender });
+      });
+    });
+    // --- End WebRTC Signaling ---
 
     socket.on("disconnect", async () => {
       const username = unbindSocketUser(socket.id);

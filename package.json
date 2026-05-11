@@ -1,0 +1,12 @@
+{
+  "name": "mallichatapp",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "npm --prefix backend run dev",
+    "install:backend": "npm --prefix backend install",
+    "build:css": "npm --prefix backend run build:css",
+    "reset:messages": "npm --prefix backend run reset:messages"
+  }
+}

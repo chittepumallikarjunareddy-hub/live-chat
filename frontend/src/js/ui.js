@@ -2,7 +2,7 @@ import { authTemplate, appShellTemplate } from "../components/templates.js";
 import { formatTimeHHMM } from "../utils/time.js";
 import { state, addSystemNotice } from "./state.js";
 
-function escapeHtml(value = "") {
+export function escapeHtml(value = "") {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -154,6 +154,27 @@ function messageBubble(message, currentUser) {
   const timeText = formatTimeHHMM(message.time);
   const editedLabel = message.editedAt ? '<span class="text-[10px] text-slate-500 mr-1">(edited)</span>' : "";
 
+  let mediaContent = "";
+  if (!message.isDeleted) {
+    if (message.type === "image" && message.fileUrl) {
+      mediaContent = `<div class="mb-2 rounded-lg overflow-hidden"><img src="${escapeHtml(message.fileUrl)}" alt="Image" class="max-w-full max-h-64 object-contain bg-black/5" /></div>`;
+    } else if (message.type === "video" && message.fileUrl) {
+      mediaContent = `<div class="mb-2 rounded-lg overflow-hidden"><video src="${escapeHtml(message.fileUrl)}" controls class="max-w-full max-h-64 object-contain bg-black/5"></video></div>`;
+    } else if (message.type === "document" && message.fileUrl) {
+      mediaContent = `
+        <a href="${escapeHtml(message.fileUrl)}" target="_blank" download="${escapeHtml(message.fileName || "document")}" class="flex items-center gap-3 p-3 bg-black/5 rounded-lg mb-2 hover:bg-black/10 transition">
+          <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-slate-500">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">${escapeHtml(message.fileName || "Document")}</p>
+            <p class="text-[11px] text-slate-500">${message.fileSize ? Math.round(message.fileSize / 1024) + " KB" : ""}</p>
+          </div>
+        </a>
+      `;
+    }
+  }
+
   return `
     <article data-id="${message.id}" class="flex ${wrapperClass} message-enter">
       <div class="relative max-w-[90%] lg:max-w-[68%] rounded-2xl px-4 py-3 shadow-sm ${bubbleClass}">
@@ -171,7 +192,7 @@ function messageBubble(message, currentUser) {
         ${
           message.isDeleted
             ? `<p class="mt-1 italic text-slate-500">This message was deleted.</p>`
-            : `<p class="mt-1 break-words">${escapeHtml(message.text)}</p>`
+            : `${mediaContent}${message.text ? `<p class="mt-1 break-words">${escapeHtml(message.text)}</p>` : ""}`
         }
         <div class="mt-2 flex justify-end items-center gap-1">
           ${editedLabel}
@@ -258,13 +279,24 @@ export function pushSystemNotice(text, isoTime) {
 export function updateChatHeader(selectedContact, typingUser = "", isSelectedContactOnline = false) {
   const title = document.getElementById("chat-room-title");
   const indicator = document.getElementById("typing-indicator");
+  const callMenuWrap = document.getElementById("call-menu-wrap");
+  const callContactName = document.getElementById("call-menu-contact-name");
+  const callAvatar = document.getElementById("call-menu-avatar");
+
   if (!title || !indicator) {
     return;
   }
   if (!selectedContact) {
     title.textContent = "Select a contact";
     indicator.textContent = "Choose a person from the left panel";
+    if (callMenuWrap) callMenuWrap.classList.add("hidden");
     return;
+  }
+
+  if (callMenuWrap) callMenuWrap.classList.remove("hidden");
+  if (callContactName) callContactName.textContent = selectedContact;
+  if (callAvatar) {
+    callAvatar.src = `https://api.dicebear.com/7.x/initials/svg?seed=${escapeHtml(selectedContact)}&backgroundColor=00a884`;
   }
 
   title.textContent = selectedContact;
