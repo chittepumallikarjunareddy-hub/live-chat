@@ -66,6 +66,7 @@ const messageSchema = new mongoose.Schema({
   fileSize: { type: Number, default: 0 },
   isDeleted: { type: Boolean, default: false },
   editedAt: Date,
+  replyTo: { type: mongoose.Schema.Types.Mixed, default: null },
   readBy: [{ type: String }],
   reactions: [{ emoji: String, users: [String] }],
   createdAt: { type: Date, default: Date.now }
@@ -253,6 +254,7 @@ function toClientMessage(doc) {
     time: timeSrc ? new Date(timeSrc).toISOString() : new Date().toISOString(),
     isDeleted: Boolean(o.isDeleted),
     editedAt: o.editedAt ? new Date(o.editedAt).toISOString() : undefined,
+    replyTo: o.replyTo || null,
     readBy: Array.isArray(o.readBy) ? o.readBy : [],
     reactions: Array.isArray(o.reactions)
       ? o.reactions.map(r => ({ emoji: r.emoji, users: Array.isArray(r.users) ? r.users : [] }))
@@ -271,7 +273,8 @@ async function addMessage(message) {
       fileUrl: message.fileUrl || "",
       fileName: message.fileName || "",
       fileSize: message.fileSize || 0,
-      isDeleted: Boolean(message.isDeleted)
+      isDeleted: Boolean(message.isDeleted),
+      replyTo: message.replyTo || null
     };
     const doc = new Message(payload);
     await doc.save();
@@ -332,8 +335,9 @@ async function editMessageForEveryone(messageId, nextText) {
 
 async function markMessagesAsRead(chatId, username) {
   try {
+    // Mark messages sent BY chatId TO username as read by username
     await Message.updateMany(
-      { receiver: chatId, sender: chatId === username ? { $ne: username } : chatId, readBy: { $ne: username } },
+      { sender: chatId, receiver: username, readBy: { $ne: username } },
       { $addToSet: { readBy: username } }
     );
     return true;
@@ -531,8 +535,8 @@ async function getScheduledMessagesForUser(username) {
 
 // ── QR Session functions ───────────────────────────────────────────────────
 
-async function createQRSession(token, ip) {
-  return await QRSession.create({ token, ip: ip || "" });
+async function createQRSession(token, socketId) {
+  return await QRSession.create({ token, socketId: socketId || "" });
 }
 
 async function getQRSession(token) {
@@ -547,6 +551,11 @@ async function updateQRSessionStatus(token, status, username, socketId) {
     if (socketId) update.socketId = socketId;
     return await QRSession.findOneAndUpdate({ token }, update, { new: true }).lean();
   } catch (e) { return null; }
+}
+
+async function deleteQRSession(token) {
+  try { await QRSession.deleteOne({ token }); }
+  catch (e) { }
 }
 
 async function deleteQRSessionsBySocket(socketId) {
@@ -618,6 +627,7 @@ module.exports = {
   createQRSession,
   getQRSession,
   updateQRSessionStatus,
+  deleteQRSession,
   deleteQRSessionsBySocket,
   bindSocketUser,
   unbindSocketUser,

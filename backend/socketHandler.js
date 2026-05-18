@@ -71,6 +71,15 @@ function registerSocketHandlers(io) {
 
       const messages = await getMessagesForUser(username);
       socket.emit("chat:history", messages);
+      // Notify online senders that their unread messages to this user were delivered
+      const uniqueSenders = [...new Set(messages.filter(m => m.receiver === username).map(m => m.sender))];
+      uniqueSenders.forEach(sender => {
+        if (sender !== username && getSocketIdsForUser(sender).length > 0) {
+          getSocketIdsForUser(sender).forEach(id =>
+            io.to(id).emit("message:delivered-bulk", { deliveredTo: username })
+          );
+        }
+      });
       io.to(GLOBAL_ROOM).emit("users:active", getActiveUsers());
       const directory = await getUserDirectory();
       io.to(GLOBAL_ROOM).emit("users:directory", directory);
@@ -131,6 +140,12 @@ function registerSocketHandlers(io) {
           ...getSocketIdsForUser(message.receiver)
         ]);
         allSockets.forEach(id => io.to(id).emit("message:new", message));
+        // If receiver is online, emit delivery receipt to sender
+        if (getSocketIdsForUser(message.receiver).length > 0) {
+          getSocketIdsForUser(message.sender).forEach(id =>
+            io.to(id).emit("message:delivered", { messageId: message.id })
+          );
+        }
       } else {
         io.to(GLOBAL_ROOM).emit("message:new", message);
       }

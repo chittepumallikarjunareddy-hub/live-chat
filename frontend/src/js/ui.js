@@ -49,14 +49,25 @@ export function setAuthFeedback(message = "", isError = true) {
   }
 }
 
-export function renderContacts(users, currentUser, selectedContact = "", searchQuery = "") {
+export function renderContacts(users, currentUser, selectedContact = "", searchQuery = "", filter = "all") {
   const contactsList = document.getElementById("contacts-list");
   if (!contactsList) return;
 
-  const visibleEntries = users.filter((entry) => entry.isGroup || entry.username !== currentUser);
+  let visibleEntries = users.filter((entry) => entry.isGroup || entry.username !== currentUser);
+
+  if (filter === "unread") {
+    visibleEntries = visibleEntries.filter((entry) => (entry.unread || 0) > 0);
+  } else if (filter === "groups") {
+    visibleEntries = visibleEntries.filter((entry) => entry.isGroup === true);
+  }
 
   if (visibleEntries.length === 0) {
-    contactsList.innerHTML = `<li class="px-3 py-10 text-xs text-slate-500 text-center font-medium">No conversations found.</li>`;
+    const emptyMsg = filter === "unread"
+      ? "No unread conversations."
+      : filter === "groups"
+        ? "No groups yet."
+        : "No conversations found.";
+    contactsList.innerHTML = `<li class="px-3 py-10 text-xs text-slate-500 text-center font-medium">${emptyMsg}</li>`;
     return;
   }
 
@@ -97,6 +108,7 @@ export function renderContacts(users, currentUser, selectedContact = "", searchQ
 function getDateLabel(timestamp) {
   if (!timestamp) return "";
   const d = new Date(timestamp);
+  if (isNaN(d.getTime())) return "";
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
@@ -128,6 +140,17 @@ export function renderMessages(messages, currentUser, selectedContact) {
   let lastSender = "";
   let html = "";
 
+  const tickSvg = (msg) => {
+    if (!msg.receiver || msg.receiver.startsWith("group_")) return "";
+    const isRead = Array.isArray(msg.readBy) && msg.readBy.includes(msg.receiver);
+    const status = msg.status || (isRead ? "read" : "sent");
+    if (status === "sent") {
+      return `<svg viewBox="0 0 12 9" width="14" height="10" fill="none" class="text-slate-400/80 shrink-0"><path d="M1 4.5L4.5 8L11 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    }
+    const cls = status === "read" ? "text-[#53bdeb]" : "text-slate-400/80";
+    return `<svg viewBox="0 0 18 11" width="16" height="10" fill="none" class="${cls} shrink-0"><path d="M1 5.5L5 9.5L12.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 5.5L9.5 9.5L17 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  };
+
   messages.forEach((msg) => {
     const isMine = msg.sender === currentUser;
     const reactions = msg.reactions || {};
@@ -158,8 +181,8 @@ export function renderMessages(messages, currentUser, selectedContact) {
     // ── Message content ───────────────────────────────────────────────────────
     let messageContent = "";
     let noPadding = false;
-    if (msg.deleted) {
-      messageContent = `<em class="text-slate-500 text-[13px] italic">Message deleted</em>`;
+    if (msg.isDeleted) {
+      messageContent = `<em class="text-slate-500 text-[13px] italic">🚫 This message was deleted</em>`;
     } else if (msg.type === "audio" && msg.url) {
       messageContent = `
         <div class="flex items-center gap-3 min-w-[180px]">
@@ -263,34 +286,83 @@ export function renderMessages(messages, currentUser, selectedContact) {
       messageContent = escapeHtml(msg.text || "");
     }
 
-    // ── Quick reaction buttons ────────────────────────────────────────────────
-    const reactionButtons = `
-      <button class="reaction-btn w-7 h-7 rounded-full hover:bg-white/10 text-base transition flex items-center justify-center hover:scale-125 active:scale-90" data-id="${msg.id}" data-emoji="👍">👍</button>
-      <button class="reaction-btn w-7 h-7 rounded-full hover:bg-white/10 text-base transition flex items-center justify-center hover:scale-125 active:scale-90" data-id="${msg.id}" data-emoji="❤️">❤️</button>
-      <button class="reaction-btn w-7 h-7 rounded-full hover:bg-white/10 text-base transition flex items-center justify-center hover:scale-125 active:scale-90" data-id="${msg.id}" data-emoji="😂">😂</button>
-    `;
+    const editedLabel = msg.editedAt && !msg.isDeleted
+      ? `<span class="text-[10px] opacity-60 italic whitespace-nowrap">edited</span>`
+      : "";
+
+    // ── Reply quote block ────────────────────────────────────────────────────
+    const replyQuote = msg.replyTo && !msg.isDeleted ? `
+      <div class="reply-quote mb-2 px-3 py-1.5 rounded-xl border-l-[3px] ${isMine ? "bg-black/20 border-[#0b141a]/60" : "bg-white/[0.05] border-[#00a884]"} cursor-pointer select-none" data-scroll-to="${escapeHtml(msg.replyTo.id || "")}">
+        <p class="text-[11px] font-bold ${isMine ? "text-[#0b141a]/70" : "text-[#00a884]"} mb-0.5 truncate">${escapeHtml(msg.replyTo.sender || "")}</p>
+        <p class="text-[12px] ${isMine ? "text-[#0b141a]/50" : "text-slate-400"} truncate">${msg.replyTo.type && msg.replyTo.type !== "text" ? "📎 " + escapeHtml(msg.replyTo.type) : escapeHtml(msg.replyTo.text || "")}</p>
+      </div>` : "";
+
+    // ── Emoji picker HTML (shared helper) ────────────────────────────────────
+    const emojiPickerHtml = (side) => `
+      <div class="msg-emoji-picker hidden absolute ${side === "right" ? "bottom-full right-0" : "bottom-full left-0"} mb-2 bg-[#0d1929] border border-white/[0.1] rounded-2xl p-2 shadow-2xl z-[100]">
+        <div class="flex gap-1">
+          ${["👍","❤️","😂","😮","😢","👏","🔥","😊"].map(em => `<button class="reaction-btn text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-transform hover:scale-125 active:scale-90" data-id="${msg.id}" data-emoji="${em}">${em}</button>`).join("")}
+        </div>
+      </div>`;
 
     if (isMine) {
       html += `
-        <div class="flex justify-end group px-2 ${spacingClass} animate-fade-in" data-id="${msg.id}">
-          <div class="max-w-[72%] md:max-w-[60%] flex flex-col items-end">
+        <div class="flex justify-end group px-2 ${spacingClass} animate-fade-in long-press-target"
+          data-id="${msg.id}" data-mine="true" data-sender="${escapeHtml(msg.sender)}"
+          data-type="${escapeHtml(msg.type || "text")}" data-text="${encodeURIComponent(msg.text || "")}"
+          data-url="${escapeHtml(msg.url || msg.fileUrl || "")}">
+          <div class="max-w-[75%] md:max-w-[60%] flex flex-col items-end">
             ${isFirstInSequence ? `<p class="text-[11px] font-semibold text-slate-500 mb-1 mr-1">You</p>` : ""}
             <div class="relative">
-              <div class="px-4 py-2.5 rounded-2xl rounded-tr-sm bg-sivion-emerald text-sivion-dark text-[14px] leading-relaxed font-medium shadow-[0_2px_8px_rgba(0,168,132,0.25)] break-words">
+              <div class="${noPadding ? "relative" : "px-4 py-2.5"} rounded-2xl rounded-tr-sm bg-sivion-emerald text-sivion-dark text-[14px] leading-relaxed font-medium shadow-[0_2px_8px_rgba(0,168,132,0.25)] break-words overflow-hidden">
+                ${replyQuote}
                 ${messageContent}
+                ${noPadding
+                  ? `<div class="absolute bottom-1.5 right-2 flex items-center gap-1 bg-black/50 rounded-full px-1.5 py-0.5 pointer-events-none">
+                       ${editedLabel}
+                       <span class="text-[10px] text-white/90 whitespace-nowrap">${formatTimeHHMM(msg.timestamp)}</span>
+                       ${tickSvg(msg)}
+                     </div>`
+                  : `<div class="flex items-center gap-1 justify-end mt-1 -mb-0.5">
+                       ${editedLabel}
+                       <span class="text-[10px] text-sivion-dark/60 whitespace-nowrap font-medium">${formatTimeHHMM(msg.timestamp)}</span>
+                       ${tickSvg(msg)}
+                     </div>`
+                }
               </div>
-              <button class="msg-delete-btn opacity-0 group-hover:opacity-100 transition-opacity absolute -top-2 -left-8 w-6 h-6 rounded-full bg-[#1e2d3a] border border-white/[0.08] flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-colors text-slate-500" data-id="${msg.id}">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-              </button>
-              <div class="absolute top-0 right-full mr-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 items-center">
-                ${reactionButtons}
+              ${!msg.isDeleted ? `
+              <div class="msg-action-bar absolute top-1/2 -translate-y-1/2 right-full mr-2
+                flex items-center gap-0.5 bg-[#111c27] border border-white/[0.08] rounded-full px-1 py-1 shadow-xl
+                opacity-0 scale-95 pointer-events-none
+                group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto
+                transition-all duration-150 ease-out origin-right">
+                <div class="relative">
+                  <button class="msg-react-btn msg-act-btn" data-id="${msg.id}" title="React">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                  </button>
+                  ${emojiPickerHtml("right")}
+                </div>
+                <button class="msg-reply-btn msg-act-btn" data-id="${msg.id}"
+                  data-sender="${escapeHtml(msg.sender)}" data-text="${encodeURIComponent(msg.text || "")}"
+                  data-type="${escapeHtml(msg.type || "text")}" title="Reply">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+                </button>
+                <button class="msg-forward-btn msg-act-btn" data-id="${msg.id}"
+                  data-text="${encodeURIComponent(msg.text || "")}" data-type="${escapeHtml(msg.type || "text")}"
+                  data-url="${escapeHtml(msg.url || msg.fileUrl || "")}" title="Forward">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg>
+                </button>
+                ${(msg.type === "text" || !msg.type) ? `
+                <button class="msg-edit-btn msg-act-btn" data-id="${msg.id}"
+                  data-text="${encodeURIComponent(msg.text || "")}" title="Edit">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>` : ""}
+                <button class="msg-delete-btn msg-act-btn" style="color:#f87171"
+                  data-id="${msg.id}" title="Delete">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
               </div>
-            </div>
-            <div class="flex items-center gap-1.5 mt-1 mr-1">
-              <span class="text-[10px] text-slate-500 font-medium">${formatTimeHHMM(msg.timestamp)}</span>
-              <svg viewBox="0 0 16 11" width="14" height="10" fill="none" class="text-sivion-emerald/70">
-                <path d="M1 5.5L5.5 10L15 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              ` : ""}
             </div>
             ${reactionHtml ? `<div class="flex flex-wrap gap-1 mt-1 justify-end">${reactionHtml}</div>` : ""}
           </div>
@@ -298,22 +370,51 @@ export function renderMessages(messages, currentUser, selectedContact) {
       `;
     } else {
       html += `
-        <div class="flex justify-start group px-2 ${spacingClass} animate-fade-in" data-id="${msg.id}">
-          <div class="max-w-[72%] md:max-w-[60%] flex flex-col items-start">
+        <div class="flex justify-start group px-2 ${spacingClass} animate-fade-in long-press-target"
+          data-id="${msg.id}" data-mine="false" data-sender="${escapeHtml(msg.sender)}"
+          data-type="${escapeHtml(msg.type || "text")}" data-text="${encodeURIComponent(msg.text || "")}"
+          data-url="${escapeHtml(msg.url || msg.fileUrl || "")}">
+          <div class="max-w-[75%] md:max-w-[60%] flex flex-col items-start">
             ${isFirstInSequence ? `<p class="text-[11px] font-semibold text-sivion-emerald/80 mb-1 ml-1">${escapeHtml(msg.sender)}</p>` : ""}
             <div class="relative">
-              <div class="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-[#1e2d3a] text-slate-100 text-[14px] leading-relaxed border border-white/[0.06] shadow-sm break-words">
+              <div class="${noPadding ? "relative" : "px-4 py-2.5"} rounded-2xl rounded-tl-sm bg-[#1e2d3a] text-slate-100 text-[14px] leading-relaxed border border-white/[0.06] shadow-sm break-words overflow-hidden">
+                ${replyQuote}
                 ${messageContent}
+                ${noPadding
+                  ? `<div class="absolute bottom-1.5 right-2 flex items-center gap-1 bg-black/50 rounded-full px-1.5 py-0.5 pointer-events-none">
+                       ${editedLabel}
+                       <span class="text-[10px] text-white/90 whitespace-nowrap">${formatTimeHHMM(msg.timestamp)}</span>
+                     </div>`
+                  : `<div class="flex items-center gap-1 justify-end mt-1 -mb-0.5">
+                       ${editedLabel}
+                       <span class="text-[10px] text-slate-500 whitespace-nowrap font-medium">${formatTimeHHMM(msg.timestamp)}</span>
+                     </div>`
+                }
               </div>
-              <button class="msg-delete-btn opacity-0 group-hover:opacity-100 transition-opacity absolute -top-2 -right-8 w-6 h-6 rounded-full bg-[#1e2d3a] border border-white/[0.08] flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-400 transition-colors text-slate-500" data-id="${msg.id}">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-              </button>
-              <div class="absolute top-0 left-full ml-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 items-center">
-                ${reactionButtons}
+              ${!msg.isDeleted ? `
+              <div class="msg-action-bar absolute top-1/2 -translate-y-1/2 left-full ml-2
+                flex items-center gap-0.5 bg-[#111c27] border border-white/[0.08] rounded-full px-1 py-1 shadow-xl
+                opacity-0 scale-95 pointer-events-none
+                group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto
+                transition-all duration-150 ease-out origin-left">
+                <div class="relative">
+                  <button class="msg-react-btn msg-act-btn" data-id="${msg.id}" title="React">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                  </button>
+                  ${emojiPickerHtml("left")}
+                </div>
+                <button class="msg-reply-btn msg-act-btn" data-id="${msg.id}"
+                  data-sender="${escapeHtml(msg.sender)}" data-text="${encodeURIComponent(msg.text || "")}"
+                  data-type="${escapeHtml(msg.type || "text")}" title="Reply">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+                </button>
+                <button class="msg-forward-btn msg-act-btn" data-id="${msg.id}"
+                  data-text="${encodeURIComponent(msg.text || "")}" data-type="${escapeHtml(msg.type || "text")}"
+                  data-url="${escapeHtml(msg.url || msg.fileUrl || "")}" title="Forward">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg>
+                </button>
               </div>
-            </div>
-            <div class="flex items-center gap-1.5 mt-1 ml-1">
-              <span class="text-[10px] text-slate-500 font-medium">${formatTimeHHMM(msg.timestamp)}</span>
+              ` : ""}
             </div>
             ${reactionHtml ? `<div class="flex flex-wrap gap-1 mt-1 justify-start">${reactionHtml}</div>` : ""}
           </div>

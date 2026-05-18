@@ -101,6 +101,21 @@
     @media (max-width: 768px) {
       ::-webkit-scrollbar { display: none; }
     }
+
+    /* ── Mobile chat: fixed bottom input bar ─────────── */
+    @media (max-width: 767px) {
+      #chat-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 40;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      #messages-list {
+        padding-bottom: 80px;
+      }
+    }
   </style>
 </head>
 <body class="bg-[#060d18] text-slate-100 overflow-hidden">
