@@ -54,6 +54,12 @@ export function patchReaction(messageId, reactions) {
   );
 }
 
+export function patchMessageStatus(messageId, status) {
+  state.messages = state.messages.map(m =>
+    m.id === messageId ? { ...m, status } : m
+  );
+}
+
 export function addSystemNotice(text, time) {
   state.systemNotices = [...state.systemNotices, { text, time }].slice(-40);
 }

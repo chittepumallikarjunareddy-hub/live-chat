@@ -45,12 +45,12 @@ export function appShellTemplate(username) {
 
           <div class="flex-1"></div>
 
-          <!-- Notification bell (decorative) -->
+          <!-- Notification bell -->
           <div class="relative mb-1">
-            <button class="w-10 h-10 rounded-2xl flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-white/[0.06] transition-all duration-200">
+            <button id="notif-bell-btn" class="w-10 h-10 rounded-2xl flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-white/[0.06] transition-all duration-200">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
             </button>
-            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 border border-[#0d1929]"></span>
+            <span id="notif-badge" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 border border-[#0d1929]"></span>
           </div>
 
           <div class="w-8 h-px bg-white/[0.07] my-1 shrink-0"></div>
@@ -102,9 +102,9 @@ export function appShellTemplate(username) {
 
               <!-- Filter chips -->
               <div class="px-4 py-2 flex items-center gap-2 overflow-x-auto sivion-scroll shrink-0 border-b border-white/[0.05] pb-3">
-                <button class="px-3.5 py-1 rounded-full bg-[#00a884]/20 text-[#00a884] text-[12px] font-semibold whitespace-nowrap hover:bg-[#00a884]/30 transition shrink-0">All</button>
-                <button class="px-3.5 py-1 rounded-full bg-white/[0.05] text-slate-400 text-[12px] font-semibold whitespace-nowrap hover:bg-white/[0.09] transition shrink-0">Unread</button>
-                <button class="px-3.5 py-1 rounded-full bg-white/[0.05] text-slate-400 text-[12px] font-semibold whitespace-nowrap hover:bg-white/[0.09] transition shrink-0">Groups</button>
+                <button id="filter-all" data-filter="all" class="px-3.5 py-1 rounded-full bg-[#00a884]/20 text-[#00a884] text-[12px] font-semibold whitespace-nowrap hover:bg-[#00a884]/30 transition shrink-0">All</button>
+                <button id="filter-unread" data-filter="unread" class="px-3.5 py-1 rounded-full bg-white/[0.05] text-slate-400 text-[12px] font-semibold whitespace-nowrap hover:bg-white/[0.09] transition shrink-0">Unread <span id="unread-filter-badge" class="hidden ml-0.5 bg-[#00a884] text-[#0b141a] text-[10px] font-black px-1.5 py-0.5 rounded-full"></span></button>
+                <button id="filter-groups" data-filter="groups" class="px-3.5 py-1 rounded-full bg-white/[0.05] text-slate-400 text-[12px] font-semibold whitespace-nowrap hover:bg-white/[0.09] transition shrink-0">Groups</button>
               </div>
 
               <ul id="contacts-list" class="flex-1 overflow-y-auto sivion-scroll p-2 space-y-0.5"></ul>
@@ -161,7 +161,7 @@ export function appShellTemplate(username) {
         </aside>
 
         <!-- Main Chat Panel -->
-        <main id="chat-panel" class="flex flex-col min-w-0 bg-[#0b141a] relative h-full overflow-hidden">
+        <main id="chat-panel" class="hidden md:flex flex-col flex-1 min-h-0 min-w-0 bg-[#0b141a] relative">
 
           <!-- Empty state -->
           <div id="chat-empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-[#0b141a] z-10 transition-all duration-500 opacity-100">
@@ -196,7 +196,7 @@ export function appShellTemplate(username) {
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
               </button>
               <div class="relative shrink-0" id="chat-header-avatar-wrap">
-                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#00a884]/20 to-blue-500/20 border border-white/[0.1] flex items-center justify-center overflow-hidden">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#00a884]/20 to-blue-500/20 border border-white/[0.1] flex items-center justify-center overflow-hidden">
                   <img id="chat-header-avatar" src="" class="w-full h-full object-cover hidden" />
                   <span id="chat-header-initials" class="text-[15px] font-bold text-white">SC</span>
                 </div>
@@ -253,66 +253,65 @@ export function appShellTemplate(username) {
           </div>
 
           <!-- Composer footer -->
-          <footer id="chat-footer" class="px-4 py-3 border-t border-white/[0.06] bg-black/20 shrink-0 relative z-20 transition-all opacity-0 translate-y-[10px]">
-            <div class="max-w-5xl mx-auto flex items-end gap-3">
-              <!-- Attachment -->
-              <div class="relative flex shrink-0">
-                <button id="attachment-btn" class="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.09] flex items-center justify-center transition active:scale-90">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                </button>
+          <footer id="chat-footer" class="px-3 py-3 border-t border-white/[0.06] bg-[#0b141a] shrink-0 relative z-20 transition-opacity opacity-0">
+            <div class="max-w-5xl mx-auto flex items-end gap-2">
+              <!-- Emoji button (outside pill, left) -->
+              <button type="button" id="emoji-picker-btn" class="shrink-0 w-10 h-10 flex items-center justify-center text-slate-500 hover:text-[#00a884] transition rounded-full hover:bg-white/[0.06] mb-0.5">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5s.67 1.5 1.5 1.5zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+              </button>
+
+              <!-- Hidden file inputs -->
+              <input type="file" id="file-doc-input" class="hidden" accept="*/*" />
+              <input type="file" id="file-photo-input" class="hidden" accept="image/*,video/*" multiple />
+              <input type="file" id="file-audio-input" class="hidden" accept="audio/*" />
+
+              <!-- Pill input area -->
+              <div class="flex-1 relative">
                 <div id="attachment-menu-panel" class="hidden absolute bottom-full left-0 mb-3 w-[280px] p-3 rounded-2xl bg-[#0d1929] border border-white/[0.1] shadow-2xl z-[60] backdrop-blur-xl animate-scale-in">
                   <p class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.12em] px-1 mb-3">Attach</p>
                   <div class="grid grid-cols-4 gap-2">
-                    <!-- Document -->
                     <button id="attach-doc-btn" class="attach-grid-item flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/[0.07] transition active:scale-90 group">
                       <div class="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500/25 transition">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
                       </div>
                       <span class="text-[10px] text-slate-400 font-medium leading-tight text-center">Document</span>
                     </button>
-                    <!-- Photos & Videos -->
                     <button id="attach-photo-btn" class="attach-grid-item flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/[0.07] transition active:scale-90 group">
                       <div class="w-11 h-11 rounded-2xl bg-blue-500/15 border border-blue-500/20 text-blue-400 flex items-center justify-center group-hover:bg-blue-500/25 transition">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
                       </div>
                       <span class="text-[10px] text-slate-400 font-medium leading-tight text-center">Photos</span>
                     </button>
-                    <!-- Camera -->
                     <button id="attach-camera-btn" class="attach-grid-item flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/[0.07] transition active:scale-90 group">
                       <div class="w-11 h-11 rounded-2xl bg-violet-500/15 border border-violet-500/20 text-violet-400 flex items-center justify-center group-hover:bg-violet-500/25 transition">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>
                       </div>
                       <span class="text-[10px] text-slate-400 font-medium leading-tight text-center">Camera</span>
                     </button>
-                    <!-- Audio -->
                     <button id="attach-audio-btn" class="attach-grid-item flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/[0.07] transition active:scale-90 group">
                       <div class="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-500/20 text-amber-400 flex items-center justify-center group-hover:bg-amber-500/25 transition">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                       </div>
                       <span class="text-[10px] text-slate-400 font-medium leading-tight text-center">Audio</span>
                     </button>
-                    <!-- Contact -->
                     <button id="attach-contact-btn" class="attach-grid-item flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/[0.07] transition active:scale-90 group">
                       <div class="w-11 h-11 rounded-2xl bg-pink-500/15 border border-pink-500/20 text-pink-400 flex items-center justify-center group-hover:bg-pink-500/25 transition">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                       </div>
                       <span class="text-[10px] text-slate-400 font-medium leading-tight text-center">Contact</span>
                     </button>
-                    <!-- Poll -->
                     <button id="attach-poll-btn" class="attach-grid-item flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/[0.07] transition active:scale-90 group">
                       <div class="w-11 h-11 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center group-hover:bg-indigo-500/25 transition">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M5 9h2v10H5zm4-4h2v14H9zm4 8h2v6h-2zm4-6h2v12h-2z"/></svg>
                       </div>
                       <span class="text-[10px] text-slate-400 font-medium leading-tight text-center">Poll</span>
                     </button>
-                    <!-- Event -->
                     <button id="attach-event-btn" class="attach-grid-item flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/[0.07] transition active:scale-90 group">
                       <div class="w-11 h-11 rounded-2xl bg-rose-500/15 border border-rose-500/20 text-rose-400 flex items-center justify-center group-hover:bg-rose-500/25 transition">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
                       </div>
                       <span class="text-[10px] text-slate-400 font-medium leading-tight text-center">Event</span>
                     </button>
-                    <!-- Sticker -->
                     <button id="attach-sticker-btn" class="attach-grid-item flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/[0.07] transition active:scale-90 group">
                       <div class="w-11 h-11 rounded-2xl bg-orange-500/15 border border-orange-500/20 text-orange-400 flex items-center justify-center group-hover:bg-orange-500/25 transition">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5s.67 1.5 1.5 1.5zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
@@ -321,39 +320,37 @@ export function appShellTemplate(username) {
                     </button>
                   </div>
                 </div>
-              </div>
-              <!-- Hidden file inputs -->
-              <input type="file" id="file-doc-input" class="hidden" accept="*/*" />
-              <input type="file" id="file-photo-input" class="hidden" accept="image/*,video/*" multiple />
-              <input type="file" id="file-audio-input" class="hidden" accept="audio/*" />
-
-              <!-- Composer form -->
-              <form id="composer-form" class="flex-1 relative flex items-end gap-2">
-                <div class="flex-1 relative">
-                  <textarea id="composer-input" rows="1" placeholder="Type a message..."
-                    class="w-full px-4 py-3 rounded-2xl bg-[#1a2733] border border-white/[0.06] focus:border-[#00a884]/50 focus:outline-none text-[14px] text-slate-100 placeholder-slate-600 resize-none sivion-scroll transition-all duration-200 min-h-[44px] max-h-[150px] pr-10"></textarea>
-                  <button type="button" id="emoji-picker-btn" class="absolute right-3 bottom-2.5 text-slate-600 hover:text-[#00a884] transition">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5s.67 1.5 1.5 1.5zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
-                  </button>
-                </div>
-
-                <div class="flex flex-col gap-2 shrink-0">
-                  <button type="button" id="voice-record-btn" class="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.06] text-slate-400 flex items-center justify-center transition active:scale-90 hover:bg-white/[0.09] hover:text-white">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
-                  </button>
-                  <div class="relative">
-                    <button type="submit" id="send-btn" class="w-10 h-10 rounded-2xl bg-[#00a884] text-[#0b141a] flex items-center justify-center transition active:scale-90 shadow-[0_4px_16px_rgba(0,168,132,0.4)] hover:brightness-105">
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                    </button>
-                    <div id="composer-more-options" class="absolute bottom-full right-0 mb-3 hidden p-2 rounded-2xl bg-[#0d1929] border border-white/[0.1] shadow-2xl animate-scale-in">
-                      <button id="schedule-message-btn" type="button" class="flex items-center gap-3 px-4 py-2.5 text-[13px] text-slate-200 hover:bg-white/[0.07] rounded-xl whitespace-nowrap">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="text-amber-400"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-                        Schedule Message
+                <form id="composer-form">
+                  <div class="flex items-center bg-[#1a2733] rounded-3xl border border-white/[0.06] focus-within:border-[#00a884]/40 transition-all px-4 gap-2">
+                    <textarea id="composer-input" rows="1" placeholder="Type a message..."
+                      class="flex-1 bg-transparent focus:outline-none text-[14px] text-slate-100 placeholder-slate-600 resize-none sivion-scroll min-h-[44px] max-h-[150px] py-3"></textarea>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <button id="attachment-btn" type="button" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white transition">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+                      </button>
+                      <button id="camera-input-btn" type="button" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white transition">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>
                       </button>
                     </div>
                   </div>
+                </form>
+              </div>
+
+              <!-- Circular mic/send button -->
+              <div class="shrink-0 relative w-11 h-11">
+                <button type="button" id="voice-record-btn" class="absolute inset-0 w-full h-full rounded-full bg-[#00a884] text-[#0b141a] flex items-center justify-center shadow-[0_4px_16px_rgba(0,168,132,0.4)] hover:brightness-105 transition active:scale-90">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                </button>
+                <button type="submit" form="composer-form" id="send-btn" class="hidden absolute inset-0 w-full h-full rounded-full bg-[#00a884] text-[#0b141a] flex items-center justify-center shadow-[0_4px_16px_rgba(0,168,132,0.4)] hover:brightness-105 transition active:scale-90">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                </button>
+                <div id="composer-more-options" class="absolute bottom-full right-0 mb-3 hidden p-2 rounded-2xl bg-[#0d1929] border border-white/[0.1] shadow-2xl animate-scale-in">
+                  <button id="schedule-message-btn" type="button" class="flex items-center gap-3 px-4 py-2.5 text-[13px] text-slate-200 hover:bg-white/[0.07] rounded-xl whitespace-nowrap">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="text-amber-400"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                    Schedule Message
+                  </button>
                 </div>
-              </form>
+              </div>
             </div>
           </footer>
 
@@ -568,13 +565,14 @@ export function appShellTemplate(username) {
               <div id="settings-profile" class="settings-section hidden animate-fade-in">
                 <h3 class="text-[26px] font-bold text-white mb-7 tracking-tight">Profile</h3>
                 <div class="bg-[#111b21] rounded-2xl p-7 border border-white/[0.06] flex flex-col items-center text-center mb-5">
-                  <div class="w-28 h-28 rounded-full border-[3px] border-[#00a884]/60 overflow-hidden mb-4 shadow-xl cursor-pointer group relative">
+                  <div id="avatar-upload-btn" class="w-28 h-28 rounded-full border-[3px] border-[#00a884]/60 overflow-hidden mb-4 shadow-xl cursor-pointer group relative">
                     <img src="https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}&backgroundColor=00a884" id="settings-avatar-preview" class="w-full h-full object-cover group-hover:opacity-70 transition" />
                     <div class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition">
                       <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M4 4h3l2-2h6l2 2h3c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm8 11c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/></svg>
                       <span class="text-[10px] font-bold text-white mt-1 uppercase tracking-wider">Change</span>
                     </div>
                   </div>
+                  <input type="file" id="avatar-file-input" accept="image/*" class="hidden" />
                   <h2 class="text-xl font-bold text-white mb-1">@${username}</h2>
                   <span class="text-[#00a884] text-[12px] font-semibold">Online</span>
                 </div>
@@ -768,9 +766,20 @@ export function appShellTemplate(username) {
               <div id="settings-link-device" class="settings-section hidden animate-fade-in">
                 <h3 class="text-[26px] font-bold text-white mb-7 tracking-tight">Link a Device</h3>
                 <div class="bg-[#111b21] rounded-2xl p-8 border border-white/[0.06] text-center">
-                  <div class="w-48 h-48 bg-white p-3 rounded-2xl mx-auto mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)]" id="settings-qr-container"></div>
+                  <div class="relative w-48 h-48 bg-white p-3 rounded-2xl mx-auto mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)]" id="settings-qr-container">
+                    <img id="settings-qr-image" src="" alt="QR Code" class="w-full h-full object-contain opacity-0 transition-opacity duration-300" />
+                    <div id="settings-qr-loading" class="absolute inset-0 flex items-center justify-center rounded-2xl bg-white">
+                      <svg class="animate-spin w-8 h-8 text-sivion-emerald" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                    </div>
+                    <div id="settings-qr-expired" class="absolute inset-0 hidden flex-col items-center justify-center gap-2 rounded-2xl bg-black/70">
+                      <span class="text-white text-xs font-semibold">Expired</span>
+                      <button id="settings-qr-refresh" class="px-3 py-1 bg-sivion-emerald text-white text-xs rounded-lg font-bold hover:bg-emerald-500 transition-colors">Refresh</button>
+                    </div>
+                  </div>
                   <p class="text-white font-bold text-[15px] mb-2">Scan with your mobile app</p>
-                  <p class="text-slate-500 text-[13px]">To link your account to another device securely.</p>
+                  <p class="text-slate-500 text-[13px] mb-3">To link your account to another device securely.</p>
+                  <p id="settings-qr-status" class="text-sivion-emerald text-[13px] animate-pulse mb-1">Generating QR code...</p>
+                  <p id="settings-qr-expiry" class="text-slate-500 text-[12px]"></p>
                 </div>
               </div>
 
@@ -814,6 +823,30 @@ export function appShellTemplate(username) {
 
       </div>
     </div>
+
+    <!-- ── Notification Panel ────────────────────────────────────────────── -->
+    <div id="notif-panel" class="hidden fixed left-[76px] top-4 bottom-4 w-[320px] z-[120] flex flex-col rounded-[24px] bg-[#0d1929] border border-white/[0.1] shadow-[0_24px_80px_rgba(0,0,0,0.7)] animate-scale-in overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
+        <div>
+          <h3 class="text-white font-bold text-[15px]">Notifications</h3>
+          <p id="notif-count-label" class="text-[11px] text-slate-500 mt-0.5">No new notifications</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="notif-clear-all-btn" class="text-[11px] font-semibold text-[#00a884] hover:text-[#00b894] transition hidden">Clear all</button>
+          <button id="notif-close-btn" class="w-7 h-7 rounded-xl bg-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.1] transition flex items-center justify-center">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+      </div>
+      <ul id="notif-list" class="flex-1 overflow-y-auto sivion-scroll py-2">
+        <li class="px-4 py-10 text-center text-slate-600 text-[13px]">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" class="mx-auto mb-3 opacity-40"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+          All caught up!
+        </li>
+      </ul>
+    </div>
+    <!-- Notif backdrop -->
+    <div id="notif-backdrop" class="hidden fixed inset-0 z-[119]"></div>
 
     <!-- ── Camera Modal ────────────────────────────────────────────────────── -->
     <div id="camera-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in p-4">

@@ -25,7 +25,8 @@ async function getSettings(req, res) {
       email: user.email || "",
       autoLaunch: user.autoLaunch || false,
       readReceipts: user.readReceipts !== false,
-      enterToSend: user.enterToSend !== false
+      enterToSend: user.enterToSend !== false,
+      avatar: user.avatar || ""
     };
     res.json({ success: true, settings });
   } catch (err) {
@@ -38,7 +39,7 @@ async function updateSettings(req, res) {
   const username = req.headers["x-acting-user"] || req.body.username;
   if (!username) return res.status(400).json({ success: false, message: "Username required" });
   try {
-    const allowed = ["theme", "language", "bio", "phone", "email", "autoLaunch", "readReceipts", "enterToSend"];
+    const allowed = ["theme", "language", "bio", "phone", "email", "autoLaunch", "readReceipts", "enterToSend", "avatar"];
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
     const User = mongoose.model("User");
