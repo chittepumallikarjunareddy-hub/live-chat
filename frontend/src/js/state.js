@@ -23,6 +23,7 @@ export function setGroups(g) { state.groups = Array.isArray(g) ? g : []; }
 export function setFriends(f) { state.friends = Array.isArray(f) ? f : []; }
 export function setFriendRequests(r) { state.friendRequests = Array.isArray(r) ? r : []; }
 export function setStories(s) { state.stories = Array.isArray(s) ? s : []; }
+export function setCallLogs(logs) { state.callLogs = Array.isArray(logs) ? logs : []; }
 
 export function setMessages(messages) {
   state.messages = Array.isArray(messages) ? messages : [];

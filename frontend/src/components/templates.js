@@ -80,12 +80,26 @@ export function appShellTemplate(username) {
                   </div>
                 </div>
                 <div class="flex items-center gap-1 text-slate-500">
-                  <button class="w-9 h-9 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition hover:text-slate-200" title="New Chat">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                  </button>
-                  <button class="w-9 h-9 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition hover:text-slate-200" title="More">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-                  </button>
+                  <div class="relative" id="new-chat-wrap">
+                    <button type="button" id="new-chat-btn" class="w-9 h-9 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition hover:text-slate-200" title="New Chat">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    </button>
+                    <div id="new-chat-panel" class="hidden absolute right-0 top-full mt-2 w-64 max-h-80 overflow-y-auto sivion-scroll py-2 rounded-2xl bg-[#0d1929] border border-white/[0.1] shadow-2xl z-[60] backdrop-blur-xl">
+                      <p class="px-3 pb-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Start new chat</p>
+                      <ul id="new-chat-list"></ul>
+                    </div>
+                  </div>
+                  <div class="relative" id="chats-more-wrap">
+                    <button type="button" id="chats-more-btn" class="w-9 h-9 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition hover:text-slate-200" title="More">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                    </button>
+                    <div id="chats-more-panel" class="hidden absolute right-0 top-full mt-2 min-w-[190px] py-2 rounded-2xl bg-[#0d1929] border border-white/[0.1] shadow-2xl z-[60] backdrop-blur-xl">
+                      <button type="button" id="new-group-btn" class="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-white/10 font-medium flex items-center gap-2.5">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="text-slate-400"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                        New Group
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -129,8 +143,27 @@ export function appShellTemplate(username) {
 
             <!-- Calls Panel -->
             <div id="sidebar-panel-calls" class="flex flex-col flex-1 min-h-0 absolute inset-0 transition-all duration-300 translate-x-full opacity-0 pointer-events-none">
-              <div class="px-5 py-4 border-b border-white/[0.05] shrink-0">
+              <div class="px-5 py-4 border-b border-white/[0.05] shrink-0 flex items-center justify-between">
                 <h2 class="text-[17px] font-bold tracking-tight text-white">Recent Calls</h2>
+                <div class="flex items-center gap-1 text-slate-500">
+                  <div class="relative" id="new-call-wrap">
+                    <button type="button" id="new-call-btn" class="w-9 h-9 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition hover:text-slate-200" title="New Call">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    </button>
+                    <div id="new-call-panel" class="hidden absolute right-0 top-full mt-2 w-64 max-h-80 overflow-y-auto sivion-scroll py-2 rounded-2xl bg-[#0d1929] border border-white/[0.1] shadow-2xl z-[60] backdrop-blur-xl">
+                      <p class="px-3 pb-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Call a contact</p>
+                      <ul id="new-call-list"></ul>
+                    </div>
+                  </div>
+                  <div class="relative" id="calls-more-wrap">
+                    <button type="button" id="calls-more-btn" class="w-9 h-9 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition hover:text-slate-200" title="More">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                    </button>
+                    <div id="calls-more-panel" class="hidden absolute right-0 top-full mt-2 min-w-[190px] py-2 rounded-2xl bg-[#0d1929] border border-white/[0.1] shadow-2xl z-[60] backdrop-blur-xl">
+                      <button type="button" id="calls-clear-btn" class="w-full text-left px-4 py-2.5 text-sm text-rose-300 hover:bg-rose-500/10 font-medium">Clear Call Log</button>
+                    </div>
+                  </div>
+                </div>
               </div>
               <ul id="calls-history" class="flex-1 overflow-y-auto sivion-scroll p-3"></ul>
             </div>
@@ -895,6 +928,28 @@ export function appShellTemplate(username) {
           <input id="contact-search-input" type="text" placeholder="Search users..." class="w-full px-4 py-2.5 mb-3 rounded-xl bg-[#111b21] border border-white/[0.07] text-[13px] text-white placeholder-slate-600 focus:border-[#00a884]/50 focus:outline-none" />
           <ul id="contact-picker-list" class="max-h-[240px] overflow-y-auto space-y-1 sivion-scroll mb-4"></ul>
           <button id="contact-send-btn" disabled class="w-full py-3 rounded-2xl bg-[#00a884] disabled:opacity-40 text-[#0b141a] font-bold text-[14px] hover:brightness-105 disabled:cursor-not-allowed transition shadow-[0_4px_16px_rgba(0,168,132,0.4)]">Share Contact</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── New Group Modal ─────────────────────────────────────────────────── -->
+    <div id="new-group-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in p-4">
+      <div class="bg-[#0d1929] rounded-[28px] border border-white/[0.08] shadow-2xl w-full max-w-sm overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+          <h3 class="text-white font-bold text-[15px]">New Group</h3>
+          <button id="close-new-group-modal" class="w-8 h-8 rounded-xl bg-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.1] transition flex items-center justify-center">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <div class="p-4 space-y-3">
+          <input id="new-group-name" type="text" placeholder="Group name" class="w-full px-4 py-2.5 rounded-xl bg-[#111b21] border border-white/[0.07] text-[13px] text-white placeholder-slate-600 focus:border-[#00a884]/50 focus:outline-none" />
+          <textarea id="new-group-desc" rows="2" placeholder="Description (optional)" class="w-full px-4 py-2.5 rounded-xl bg-[#111b21] border border-white/[0.07] text-[13px] text-white placeholder-slate-600 focus:border-[#00a884]/50 focus:outline-none resize-none"></textarea>
+          <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wide pt-1">Add members</p>
+          <div id="group-members-list" class="max-h-[220px] overflow-y-auto space-y-1 sivion-scroll"></div>
+          <div class="flex gap-2 pt-1">
+            <button id="cancel-group-btn" class="flex-1 py-3 rounded-2xl bg-white/[0.06] text-slate-300 font-bold text-[14px] hover:bg-white/[0.1] transition">Cancel</button>
+            <button id="create-group-submit-btn" class="flex-1 py-3 rounded-2xl bg-[#00a884] text-[#0b141a] font-bold text-[14px] hover:brightness-105 transition shadow-[0_4px_16px_rgba(0,168,132,0.4)]">Create</button>
+          </div>
         </div>
       </div>
     </div>

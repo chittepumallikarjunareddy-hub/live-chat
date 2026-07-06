@@ -1,4 +1,4 @@
-import { state, setCurrentUser, addMessage, setMessages, setSelectedContact, setTypingUser, patchMessageStatus, markMessageDeleted, patchMessageEdit, patchReaction } from "./state.js";
+import { state, setCurrentUser, addMessage, setMessages, setSelectedContact, setTypingUser, patchMessageStatus, markMessageDeleted, patchMessageEdit, patchReaction, setCallLogs } from "./state.js";
 import { renderAuthScreen, renderAppShell, renderContacts, renderMessages, setAuthModeUi, setAuthFeedback, showToast } from "./ui.js";
 import { initSocket } from "./socket.js";
 import { formatTimeHHMM } from "../utils/time.js";
@@ -1312,6 +1312,187 @@ function wireAppEvents(socket) {
   navFriends?.addEventListener("click", () => switchPanel("sidebar-panel-friends", navFriends));
   navCalls?.addEventListener("click", () => switchPanel("sidebar-panel-calls", navCalls));
 
+  // ── Chats "New Chat" / "More" and Calls "New Call" / "More" menus ─────────
+  const escHtml = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  function closeAllHeaderMenus() {
+    ["new-chat-panel", "chats-more-panel", "new-call-panel", "calls-more-panel"].forEach(id => {
+      document.getElementById(id)?.classList.add("hidden");
+    });
+  }
+
+  function toggleHeaderMenu(panelId, renderFn) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const wasHidden = panel.classList.contains("hidden");
+    closeAllHeaderMenus();
+    if (wasHidden) {
+      panel.classList.remove("hidden");
+      renderFn?.();
+    }
+  }
+
+  function openChatWithUser(username) {
+    const existing = document.querySelector(`.contact-item[data-username="${username}"]`);
+    if (existing) { existing.click(); return; }
+    setSelectedContact(username);
+    document.getElementById("chat-empty-state")?.classList.add("hidden");
+    document.getElementById("chat-header")?.classList.remove("opacity-0", "translate-y-[-10px]");
+    document.getElementById("chat-footer")?.classList.remove("opacity-0");
+    const nameEl = document.getElementById("chat-header-name");
+    if (nameEl) nameEl.textContent = username;
+    renderMessages(state.messages, state.currentUser, username);
+    refreshContacts();
+    setMobileTab("chat");
+  }
+
+  function getFriendNames() {
+    return (state.friends || []).map(f => typeof f === "string" ? f : f.username).filter(f => f && f !== state.currentUser);
+  }
+
+  function renderNewChatList() {
+    const list = document.getElementById("new-chat-list");
+    if (!list) return;
+    const friends = getFriendNames();
+    if (!friends.length) {
+      list.innerHTML = `<li class="px-3 py-6 text-center text-slate-600 text-[12px]">No contacts yet. Add a friend first.</li>`;
+      return;
+    }
+    list.innerHTML = friends.map(name => `
+      <li class="new-chat-pick-item flex items-center gap-3 px-3 py-2 mx-1 rounded-xl hover:bg-white/[0.06] transition cursor-pointer" data-name="${escHtml(name)}">
+        <img src="https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=00a884" class="w-8 h-8 rounded-full shrink-0" loading="lazy" />
+        <span class="text-[13px] font-medium text-white truncate">${escHtml(name)}</span>
+      </li>`).join("");
+    list.querySelectorAll(".new-chat-pick-item").forEach(item => {
+      item.addEventListener("click", () => {
+        closeAllHeaderMenus();
+        switchPanel("sidebar-panel-chats", navChats);
+        openChatWithUser(item.getAttribute("data-name"));
+      });
+    });
+  }
+
+  function renderNewCallList() {
+    const list = document.getElementById("new-call-list");
+    if (!list) return;
+    const friends = getFriendNames();
+    if (!friends.length) {
+      list.innerHTML = `<li class="px-3 py-6 text-center text-slate-600 text-[12px]">No contacts yet. Add a friend first.</li>`;
+      return;
+    }
+    list.innerHTML = friends.map(name => `
+      <li class="flex items-center gap-2 px-3 py-2 mx-1 rounded-xl hover:bg-white/[0.06] transition" data-name="${escHtml(name)}">
+        <img src="https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=00a884" class="w-8 h-8 rounded-full shrink-0" loading="lazy" />
+        <span class="text-[13px] font-medium text-white flex-1 truncate">${escHtml(name)}</span>
+        <button class="new-call-audio-btn w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-[#00a884]/15 hover:text-[#00a884] transition" data-name="${escHtml(name)}" title="Voice call">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+        </button>
+        <button class="new-call-video-btn w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-[#00a884]/15 hover:text-[#00a884] transition" data-name="${escHtml(name)}" title="Video call">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        </button>
+      </li>`).join("");
+    list.querySelectorAll(".new-call-audio-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeAllHeaderMenus();
+        startCall(socket, state.currentUser, btn.getAttribute("data-name"), "audio");
+      });
+    });
+    list.querySelectorAll(".new-call-video-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeAllHeaderMenus();
+        startCall(socket, state.currentUser, btn.getAttribute("data-name"), "video");
+      });
+    });
+  }
+
+  function renderCallsHistory() {
+    const list = document.getElementById("calls-history");
+    if (!list) return;
+    const logs = state.callLogs || [];
+    if (!logs.length) {
+      list.innerHTML = `<li class="px-3 py-10 text-xs text-slate-500 text-center font-medium">No recent calls.</li>`;
+      return;
+    }
+    const outArrow = `<path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/>`;
+    const inArrow = `<path d="M15 19v-2H8.41L20 5.41 18.59 4 7 15.59V9H5v10h10z"/>`;
+    list.innerHTML = logs.map(log => {
+      const isOutgoing = log.caller === state.currentUser;
+      const other = isOutgoing ? log.callee : log.caller;
+      const missed = log.status === "missed" || log.status === "declined";
+      const arrowColor = missed ? "text-rose-400" : "text-[#00a884]";
+      const arrowPath = isOutgoing ? outArrow : inArrow;
+      const typeIconSvg = log.type === "video"
+        ? `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`
+        : `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>`;
+      const timeLabel = log.startedAt ? formatTimeHHMM(log.startedAt) : "";
+      const durationLabel = log.duration ? ` · ${Math.floor(log.duration / 60)}:${String(log.duration % 60).padStart(2, "0")}` : "";
+      const statusLabel = missed ? (log.status === "declined" ? "Declined" : "Missed") : (isOutgoing ? "Outgoing" : "Incoming");
+      return `
+        <li class="call-history-item flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-white/[0.04] transition cursor-pointer" data-name="${escHtml(other)}">
+          <img src="https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(other)}&backgroundColor=00a884" class="w-11 h-11 rounded-2xl shrink-0" loading="lazy" />
+          <div class="flex-1 min-w-0">
+            <p class="text-[14px] font-semibold text-white truncate leading-tight">${escHtml(other)}</p>
+            <div class="flex items-center gap-1 mt-0.5 text-[12px] ${arrowColor}">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">${arrowPath}</svg>
+              <span>${statusLabel}${durationLabel}</span>
+            </div>
+          </div>
+          <span class="text-[10px] text-slate-500 shrink-0">${timeLabel}</span>
+          <button class="call-back-btn w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:bg-[#00a884]/15 hover:text-[#00a884] transition shrink-0" data-name="${escHtml(other)}" data-type="${log.type || "audio"}" title="Call back">
+            ${typeIconSvg}
+          </button>
+        </li>`;
+    }).join("");
+
+    list.querySelectorAll(".call-back-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        startCall(socket, state.currentUser, btn.getAttribute("data-name"), btn.getAttribute("data-type"));
+      });
+    });
+    list.querySelectorAll(".call-history-item").forEach(item => {
+      item.addEventListener("click", () => {
+        switchPanel("sidebar-panel-chats", navChats);
+        openChatWithUser(item.getAttribute("data-name"));
+      });
+    });
+  }
+
+  socket.on("calls:history", (logs) => {
+    setCallLogs(logs);
+    renderCallsHistory();
+  });
+
+  document.getElementById("new-chat-btn")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu("new-chat-panel", renderNewChatList);
+  });
+  document.getElementById("chats-more-btn")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu("chats-more-panel");
+  });
+  document.getElementById("new-call-btn")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu("new-call-panel", renderNewCallList);
+  });
+  document.getElementById("calls-more-btn")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu("calls-more-panel");
+  });
+  document.getElementById("calls-clear-btn")?.addEventListener("click", () => {
+    closeAllHeaderMenus();
+    socket.emit("calls:clear", { username: state.currentUser });
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#new-chat-wrap") && !e.target.closest("#chats-more-wrap") &&
+        !e.target.closest("#new-call-wrap") && !e.target.closest("#calls-more-wrap")) {
+      closeAllHeaderMenus();
+    }
+  });
+
   // --- Messaging ---
   const sendBtn = document.getElementById("send-btn");
   const voiceBtn = document.getElementById("voice-record-btn");
@@ -1688,6 +1869,7 @@ function wireAppEvents(socket) {
     // New Group Button
     const newGroupBtnClick = e.target.closest("#new-group-btn");
     if (newGroupBtnClick) {
+      document.getElementById("chats-more-panel")?.classList.add("hidden");
       const modal = document.getElementById("new-group-modal");
       modal?.classList.remove("hidden");
       selectedGroupMembers.clear();

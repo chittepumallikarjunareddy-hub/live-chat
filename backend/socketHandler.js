@@ -29,6 +29,7 @@ const {
   saveCallLog,
   updateCallLog,
   getCallLogsForUser,
+  clearCallLogsForUser,
   addReaction,
   createScheduledMessage,
   getAndFirePendingScheduled,
@@ -345,7 +346,7 @@ function registerSocketHandlers(io) {
               if (targetSockets.length > 0) {
                 onlineCount++;
                 targetSockets.forEach(id =>
-                  io.to(id).emit("webrtc:incoming-call", { caller, type, groupCallId: targetUser })
+                  io.to(id).emit("webrtc:call-incoming", { caller, type, groupCallId: targetUser })
                 );
               }
             }
@@ -358,17 +359,17 @@ function registerSocketHandlers(io) {
         const targetSockets = getSocketIdsForUser(targetUser);
         if (targetSockets.length === 0) {
           const callId = uuidv4();
-          await saveCallLog({ callId, caller, callee: targetUser, callType: type });
+          await saveCallLog({ id: callId, caller, callee: targetUser, type });
           await emitCallHistory(io, caller, targetUser);
           socket.emit("webrtc:call-declined", { responder: targetUser, reason: "offline" });
           return;
         }
         const callId = uuidv4();
-        await saveCallLog({ callId, caller, callee: targetUser, callType: type });
+        await saveCallLog({ id: callId, caller, callee: targetUser, type });
         pendingCallByUsers.set(`${caller}:${targetUser}`, callId);
         activeCallsData.set(callId, { caller, callee: targetUser });
         targetSockets.forEach(id =>
-          io.to(id).emit("webrtc:incoming-call", { caller, type })
+          io.to(id).emit("webrtc:call-incoming", { caller, type })
         );
       }
     });
@@ -550,94 +551,11 @@ function registerSocketHandlers(io) {
       );
     });
 
-    // ── WebRTC Calling Signaling ──────────────────────────────
-    socket.on("webrtc:call-initiate", async ({ targetUser, caller, type }) => {
-      const callId = uuidv4();
-      pendingCallByUsers.set(`${caller}:${targetUser}`, callId);
-      
-      const log = {
-        id: callId,
-        caller,
-        callee: targetUser,
-        type,
-        status: "missed",
-        startedAt: new Date().toISOString(),
-        duration: 0
-      };
-      await saveCallLog(log);
-
-      getSocketIdsForUser(targetUser).forEach(id =>
-        io.to(id).emit("webrtc:call-incoming", { caller, type })
-      );
-    });
-
-    socket.on("webrtc:call-accept", async ({ targetUser, responder }) => {
-      const callId = pendingCallByUsers.get(`${targetUser}:${responder}`);
-      if (callId) {
-        pendingCallByUsers.delete(`${targetUser}:${responder}`);
-        activeCallsData.set(callId, { caller: targetUser, callee: responder, answeredAt: Date.now() });
-        await updateCallLog(callId, { status: "answered" });
-      }
-
-      getSocketIdsForUser(targetUser).forEach(id =>
-        io.to(id).emit("webrtc:call-accepted", { responder })
-      );
-    });
-
-    socket.on("webrtc:call-decline", async ({ targetUser, responder }) => {
-      const callId = pendingCallByUsers.get(`${targetUser}:${responder}`);
-      if (callId) {
-        pendingCallByUsers.delete(`${targetUser}:${responder}`);
-      }
-
-      getSocketIdsForUser(targetUser).forEach(id =>
-        io.to(id).emit("webrtc:call-declined", { reason: "declined" })
-      );
-    });
-
-    socket.on("webrtc:offer", ({ targetUser, caller, offer }) => {
-      getSocketIdsForUser(targetUser).forEach(id =>
-        io.to(id).emit("webrtc:offer", { caller, offer })
-      );
-    });
-
-    socket.on("webrtc:answer", ({ targetUser, responder, answer }) => {
-      getSocketIdsForUser(targetUser).forEach(id =>
-        io.to(id).emit("webrtc:answer", { responder, answer })
-      );
-    });
-
-    socket.on("webrtc:ice-candidate", ({ targetUser, sender, candidate }) => {
-      getSocketIdsForUser(targetUser).forEach(id =>
-        io.to(id).emit("webrtc:ice-candidate", { sender, candidate })
-      );
-    });
-
-    socket.on("webrtc:call-end", async ({ targetUser, sender }) => {
-      // Find active call to update duration
-      let activeCallId = null;
-      let callData = null;
-      for (const [cId, data] of activeCallsData.entries()) {
-        if ((data.caller === sender && data.callee === targetUser) ||
-            (data.caller === targetUser && data.callee === sender)) {
-          activeCallId = cId;
-          callData = data;
-          break;
-        }
-      }
-
-      if (activeCallId && callData) {
-        const durationSeconds = Math.floor((Date.now() - callData.answeredAt) / 1000);
-        await updateCallLog(activeCallId, { duration: durationSeconds });
-        activeCallsData.delete(activeCallId);
-        
-        // Notify both so their history updates
-        emitCallHistory(io, callData.caller, callData.callee);
-      }
-
-      getSocketIdsForUser(targetUser).forEach(id =>
-        io.to(id).emit("webrtc:call-ended", { sender })
-      );
+    // ── Call Log: Clear ────────────────────────────────────────
+    socket.on("calls:clear", async ({ username }) => {
+      if (!username) return;
+      await clearCallLogsForUser(username);
+      await emitCallHistory(io, username);
     });
 
     // ── Disconnect ────────────────────────────────────────────

@@ -16,6 +16,7 @@ async function connectDB() {
     await mongoose.connect(uriToUse, defaultConnectOptions);
     console.log("MongoDB connected:", uriToUse);
     await seedDefaultUsers();
+    await dropStaleCallLogIndex();
     return;
   } catch (error) {
     console.error("MongoDB connection error:", error);
@@ -24,6 +25,7 @@ async function connectDB() {
         await mongoose.connect(localUri, defaultConnectOptions);
         console.log("MongoDB connected (local fallback):", localUri);
         await seedDefaultUsers();
+        await dropStaleCallLogIndex();
         return;
       } catch (fallbackError) {
         console.error("Local MongoDB fallback failed:", fallbackError);
@@ -450,6 +452,24 @@ async function getFriends(username) {
 
 // ── Call log functions ─────────────────────────────────────────────────────
 
+// The callLogSchema used to declare a unique `callId` field; it was renamed
+// to `id`, but the old unique index survives in existing databases. Every
+// insert has `callId: undefined` under that stale index, so only the first
+// call log ever saved succeeds — every one after collides on the null key.
+async function dropStaleCallLogIndex() {
+  try {
+    const indexes = await CallLog.collection.indexes();
+    if (indexes.some(idx => idx.name === "callId_1")) {
+      await CallLog.collection.dropIndex("callId_1");
+      console.log("Dropped stale CallLog index callId_1");
+    }
+  } catch (e) {
+    if (e.codeName !== "IndexNotFound" && e.code !== 27) {
+      console.error("dropStaleCallLogIndex error:", e);
+    }
+  }
+}
+
 async function saveCallLog(log) {
   try {
     const doc = new CallLog({ id: log.id || uuidv4(), caller: log.caller, callee: log.callee, type: log.type || "audio", status: log.status || "missed", startedAt: log.startedAt || new Date() });
@@ -472,6 +492,13 @@ async function getCallLogsForUser(username) {
       status: l.status, startedAt: l.startedAt, endedAt: l.endedAt, duration: l.duration || 0
     }));
   } catch (e) { return []; }
+}
+
+async function clearCallLogsForUser(username) {
+  try {
+    await CallLog.deleteMany({ $or: [{ caller: username }, { callee: username }] });
+    return true;
+  } catch (e) { console.error("clearCallLogsForUser error:", e); return false; }
 }
 
 // ── Story functions ────────────────────────────────────────────────────────
@@ -617,6 +644,7 @@ module.exports = {
   saveCallLog,
   updateCallLog,
   getCallLogsForUser,
+  clearCallLogsForUser,
   createStory,
   getActiveStories,
   markStoryViewed,
